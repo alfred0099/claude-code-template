@@ -1,0 +1,57 @@
+name: Validate Claude Code Configuration
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - '.claude/**'
+      - '.github/workflows/validate-claude-config.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '.claude/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate settings.json
+        run: |
+          if [ -f ".claude/settings.json" ]; then
+            python3 -m json.tool .claude/settings.json > /dev/null && echo "✓ settings.json valid" || (echo "✗ settings.json invalid" && exit 1)
+          fi
+
+      - name: Check required files
+        run: |
+          required_files=(
+            ".claude/settings.json"
+            ".claude/rules/code-style.md"
+            ".claude/rules/testing.md"
+            ".claude/rules/api-conventions.md"
+            ".claude/commands/review.md"
+            ".claude/commands/fix-issue.md"
+            ".claude/hooks/validate-bash.sh"
+            "CLAUDE.md"
+            "README.md"
+          )
+
+          for file in "${required_files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✓ $file"
+            else
+              echo "✗ $file (missing)"
+              exit 1
+            fi
+          done
+
+      - name: Check hook is executable
+        run: |
+          if [ -x ".claude/hooks/validate-bash.sh" ]; then
+            echo "✓ validate-bash.sh is executable"
+          else
+            echo "✗ validate-bash.sh not executable"
+            exit 1
+          fi

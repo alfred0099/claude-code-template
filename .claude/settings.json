@@ -1,0 +1,20 @@
+{
+  "tools": {
+    "bash": true,
+    "read": true,
+    "write": true,
+    "edit": true,
+    "search": true,
+    "web_fetch": true
+  },
+  "models": {
+    "default": "claude-opus-4-6",
+    "code_review": "claude-opus-4-6",
+    "testing": "claude-sonnet-4-6",
+    "documentation": "claude-haiku-4-5"
+  },
+  "git_hooks": {
+    "pre_commit": [".claude/hooks/validate-bash.sh"]
+  },
+  "max_context_tokens": 200000
+}
