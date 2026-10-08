@@ -21,3 +21,10 @@ npm-debug.log
 
 # OS
 Thumbs.db
+
+# Secrets (also blocked by the pre-commit hook)
+.env
+.env.*
+!.env.example
+*.pem
+*.key

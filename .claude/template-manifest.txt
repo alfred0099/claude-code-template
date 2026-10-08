@@ -1,0 +1,25 @@
+# Files owned by alfred0099/claude-code-template. scripts/sync-from-template.sh
+# overwrites these in a project. Everything else (CLAUDE.md, decisions/BUSINESS.md,
+# decision records, lessons.md, path-scoped rules) belongs to the project.
+.claude/template-manifest.txt
+.claude/settings.json
+.claude/hooks/guard.py
+.claude/hooks/board_status.py
+.claude/rules/honesty.md
+.claude/rules/change-tiers.md
+.claude/rules/workflow.md
+.claude/agents
+.claude/skills/propose
+.claude/skills/board
+.claude/skills/outcome-review
+.claude/skills/review
+.claude/skills/fix-issue
+decisions/README.md
+decisions/_template.md
+scripts/git-hooks/pre-commit
+scripts/setup-claude-code.sh
+scripts/sync-from-template.sh
+scripts/decision_gate.py
+scripts/test_hooks.py
+.github/workflows/decision-gate.yml
+.github/workflows/validate-claude-config.yml

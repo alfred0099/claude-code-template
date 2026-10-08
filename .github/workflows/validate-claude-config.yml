@@ -1,57 +1,54 @@
-name: Validate Claude Code Configuration
+name: Validate Claude Code configuration
 
 on:
   push:
-    branches: [main, develop]
-    paths:
-      - '.claude/**'
-      - '.github/workflows/validate-claude-config.yml'
+    paths: ['.claude/**', 'decisions/**', 'scripts/**', 'CLAUDE.md', '.github/workflows/validate-claude-config.yml']
   pull_request:
-    branches: [main, develop]
-    paths:
-      - '.claude/**'
+    paths: ['.claude/**', 'decisions/**', 'scripts/**', 'CLAUDE.md']
+
+permissions:
+  contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Validate settings.json
+      - name: settings.json is valid JSON and uses real Claude Code keys
         run: |
-          if [ -f ".claude/settings.json" ]; then
-            python3 -m json.tool .claude/settings.json > /dev/null && echo "✓ settings.json valid" || (echo "✗ settings.json invalid" && exit 1)
-          fi
+          python3 - <<'PY'
+          import json, sys
+          s = json.load(open(".claude/settings.json"))
+          # Keys that earlier versions of this template invented. Claude Code ignores them silently.
+          invented = {"tools", "models", "git_hooks", "max_context_tokens", "toolPermissions",
+                      "modelSelection", "codeCompletion", "testing", "documentation"}
+          bad = sorted(invented & s.keys())
+          if bad:
+              sys.exit(f"settings.json uses keys Claude Code does not read: {bad}")
+          print("settings.json ok")
+          PY
 
-      - name: Check required files
+      - name: agents and skills have required frontmatter
         run: |
-          required_files=(
-            ".claude/settings.json"
-            ".claude/rules/code-style.md"
-            ".claude/rules/testing.md"
-            ".claude/rules/api-conventions.md"
-            ".claude/commands/review.md"
-            ".claude/commands/fix-issue.md"
-            ".claude/hooks/validate-bash.sh"
-            "CLAUDE.md"
-            "README.md"
-          )
+          python3 - <<'PY'
+          import pathlib, re, sys
+          errors = []
+          for f in pathlib.Path(".claude/agents").glob("*.md"):
+              fm = re.match(r"^---\n(.*?)\n---", f.read_text(), re.S)
+              if not fm or not re.search(r"^name:", fm.group(1), re.M) or not re.search(r"^description:", fm.group(1), re.M):
+                  errors.append(f"{f}: needs name and description frontmatter")
+          for f in pathlib.Path(".claude/skills").glob("*/SKILL.md"):
+              fm = re.match(r"^---\n(.*?)\n---", f.read_text(), re.S)
+              if not fm or not re.search(r"^description:", fm.group(1), re.M):
+                  errors.append(f"{f}: needs description frontmatter")
+          if errors:
+              sys.exit("\n".join(errors))
+          print("frontmatter ok")
+          PY
 
-          for file in "${required_files[@]}"; do
-            if [ -f "$file" ]; then
-              echo "✓ $file"
-            else
-              echo "✗ $file (missing)"
-              exit 1
-            fi
-          done
-
-      - name: Check hook is executable
+      - name: hook scripts compile, are executable, and pass self-tests
         run: |
-          if [ -x ".claude/hooks/validate-bash.sh" ]; then
-            echo "✓ validate-bash.sh is executable"
-          else
-            echo "✗ validate-bash.sh not executable"
-            exit 1
-          fi
+          python3 -m py_compile .claude/hooks/*.py scripts/*.py
+          test -x scripts/git-hooks/pre-commit
+          python3 scripts/test_hooks.py
