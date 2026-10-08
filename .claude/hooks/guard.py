@@ -11,6 +11,7 @@ What it blocks:
   - shell reads of secret files (.pem, .key, .env, aws credentials)
   - anything matched by .claude/guard-patterns.txt (project-specific, regex<TAB>reason)
 """
+
 from __future__ import annotations
 
 import json
@@ -20,10 +21,18 @@ import sys
 from pathlib import Path
 
 OWNER_ONLY = re.compile(
-    r"^\s*(status:\s*(approved|rejected|killed)\b|approved_by:\s*\S)", re.IGNORECASE | re.MULTILINE
+    r"^[ \t]*(status:[ \t]*(approved|rejected|killed)\b|approved_by:[ \t]*[^\s#])",
+    re.IGNORECASE | re.MULTILINE,
+)
+SHELL_OWNER_ONLY = re.compile(
+    r"(status:[ \t]*(approved|rejected|killed)\b|approved_by:[ \t]*[^\s#'\"])",
+    re.IGNORECASE,
 )
 SHELL_RULES = [
-    (re.compile(r"--no-verify\b"), "Bypassing git hooks is not allowed. Fix the failing check instead."),
+    (
+        re.compile(r"--no-verify\b"),
+        "Bypassing git hooks is not allowed. Fix the failing check instead.",
+    ),
     (
         re.compile(r"\bgit\s+push\b.*(\s--force(-with-lease)?\b|\s-f\b|\s\+\S)"),
         "Force pushes are not allowed from Claude. Ask the owner to do it if it is really needed.",
@@ -32,14 +41,17 @@ SHELL_RULES = [
         re.compile(r"\bgit\s+push\b.*(\s|:)(main|master)(\s|$)"),
         "Pushing to main/master is not allowed. Push a branch and open a PR.",
     ),
-    (
-        re.compile(
-            r"\b(cat|less|more|head|tail|bat|strings|xxd|base64|cp|scp|open)\b[^|;&]*"
-            r"(\.pem\b|\.key\b|(?<![\w.-])\.env(?!\.(example|sample|template))\b|aws/credentials)"
-        ),
-        "Reading secret files is not allowed. Ask the owner for the specific non-secret value you need.",
-    ),
 ]
+# A read command at the start of a line or after | ; & ( ` $( , and its arguments up to
+# the next redirect or separator. Heredoc bodies and redirect targets are not arguments.
+SECRET_READ = re.compile(
+    r"(?:^|[|;&(`]|\$\()\s*(?:sudo\s+)?(cat|less|more|head|tail|bat|strings|xxd|base64|cp|scp|open)\b"
+    r"([^|;&<>\n]*)",
+    re.MULTILINE,
+)
+SECRET_PATH = re.compile(
+    r"(\.pem\b|\.key\b|(?<![\w.-])\.env(?!\.(example|sample|template))\b|aws/credentials)"
+)
 
 
 def block(reason: str) -> None:
@@ -57,7 +69,10 @@ def is_decision_record(path: str) -> bool:
 
 
 def markers(text: str) -> set[str]:
-    return {re.sub(r"\s+", " ", m.group(0).strip().lower()) for m in OWNER_ONLY.finditer(text or "")}
+    return {
+        re.sub(r"\s+", " ", m.group(0).strip().lower())
+        for m in OWNER_ONLY.finditer(text or "")
+    }
 
 
 def owner_only_change(old: str, new: str) -> bool:
@@ -107,8 +122,15 @@ def project_patterns() -> list[tuple[re.Pattern, str]]:
 
 
 def check_bash(cmd: str) -> None:
-    if "decisions/" in cmd and re.search(r"(status:\s*(approved|rejected|killed)|approved_by)", cmd, re.I):
-        block("Only the owner can approve, reject or kill a decision record, including via the shell.")
+    if "decisions/" in cmd and SHELL_OWNER_ONLY.search(cmd):
+        block(
+            "Only the owner can approve, reject or kill a decision record, including via the shell."
+        )
+    for m in SECRET_READ.finditer(cmd):
+        if SECRET_PATH.search(m.group(2)):
+            block(
+                "Reading secret files is not allowed. Ask the owner for the specific non-secret value you need."
+            )
     for rx, reason in SHELL_RULES + project_patterns():
         if rx.search(cmd):
             block(reason)

@@ -4,6 +4,7 @@
 Reads decisions/BUSINESS.md and decisions/D-*.md frontmatter. Prints nothing if the
 project has no decisions/ directory. Never fails the session.
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -53,9 +54,13 @@ def main() -> None:
 
     biz = frontmatter(root / "BUSINESS.md")
     if not biz:
-        lines.append("- decisions/BUSINESS.md is missing or has no frontmatter; business goals are undefined.")
+        lines.append(
+            "- decisions/BUSINESS.md is missing or has no frontmatter; business goals are undefined."
+        )
     else:
-        unset = [k for k, v in biz.items() if v.lower() in ("", "unset", "unknown", "tbd")]
+        unset = [
+            k for k, v in biz.items() if v.lower() in ("", "unset", "unknown", "tbd")
+        ]
         if unset:
             lines.append(f"- BUSINESS.md fields not set: {', '.join(unset)}.")
         budget = as_float(biz.get("token_budget_monthly_usd"))
@@ -67,9 +72,13 @@ def main() -> None:
                 "Paid runs (live-LLM tests, real-agent runs, board runs on API billing) need owner confirmation."
             )
         elif budget:
-            lines.append(f"- Token spend recorded {updated}: US${spent:g} of US${budget:g}/month.")
+            lines.append(
+                f"- Token spend recorded {updated}: US${spent:g} of US${budget:g}/month."
+            )
             if spent >= 0.8 * budget:
-                lines.append("- Spend is at or above 80% of budget. Only Tier 0 work without paid calls.")
+                lines.append(
+                    "- Spend is at or above 80% of budget. Only Tier 0 work without paid calls."
+                )
         lines.append(
             f"- Revenue: {biz.get('revenue_to_date', '?')} of target {biz.get('revenue_target', '?')} "
             f"{biz.get('revenue_currency', '')} by {biz.get('revenue_deadline', '?')}; "

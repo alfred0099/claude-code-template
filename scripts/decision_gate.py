@@ -9,6 +9,7 @@ Passes when:
 Limitation: CI cannot tell whether the owner or an agent wrote `status: approved`.
 The Claude Code guard hook blocks agents from writing it; this gate checks it exists.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,7 +17,17 @@ import re
 import sys
 from pathlib import Path
 
-TIER0_PREFIXES = ("fix/", "chore/", "docs/", "test/", "refactor/", "ci/", "deps/", "dependabot/", "revert-")
+TIER0_PREFIXES = (
+    "fix/",
+    "chore/",
+    "docs/",
+    "test/",
+    "refactor/",
+    "ci/",
+    "deps/",
+    "dependabot/",
+    "revert-",
+)
 OK_STATUSES = {"approved", "shipped", "reviewed"}
 
 
@@ -25,7 +36,9 @@ def status_of(record: Path) -> str:
     return m.group(1).lower() if m else ""
 
 
-def evaluate(branch: str, title: str, labels: list[str], decisions_dir: Path) -> tuple[bool, str]:
+def evaluate(
+    branch: str, title: str, labels: list[str], decisions_dir: Path
+) -> tuple[bool, str]:
     if branch.startswith(TIER0_PREFIXES):
         return True, f"Tier 0 branch '{branch}': no decision record needed."
     if "tier-0" in labels:
@@ -43,14 +56,19 @@ def evaluate(branch: str, title: str, labels: list[str], decisions_dir: Path) ->
             return False, f"{did}: no decisions/{did}-*.md in this branch."
         status = status_of(matches[0])
         if status not in OK_STATUSES:
-            return False, f"{did}: status is '{status or 'missing'}'. The owner must set it to approved before merge."
+            return (
+                False,
+                f"{did}: status is '{status or 'missing'}'. The owner must set it to approved before merge.",
+            )
     return True, f"Decision(s) {', '.join(ids)} approved."
 
 
 def main() -> int:
     branch = os.environ.get("HEAD_REF", "")
     title = os.environ.get("PR_TITLE", "")
-    labels = [x.strip() for x in os.environ.get("PR_LABELS", "").split(",") if x.strip()]
+    labels = [
+        x.strip() for x in os.environ.get("PR_LABELS", "").split(",") if x.strip()
+    ]
     ok, msg = evaluate(branch, title, labels, Path("decisions"))
     print(("PASS: " if ok else "FAIL: ") + msg)
     return 0 if ok else 1
