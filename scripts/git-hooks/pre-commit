@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Git pre-commit hook, installed by scripts/setup-claude-code.sh (git config core.hooksPath).
+# Every check reports PASS, FAIL or SKIPPED. Nothing is reported as passed unless it ran.
+set -u
+root=$(git rev-parse --show-toplevel)
+cd "$root" || exit 1
+fail=0
+pass() { echo "PASS     $1"; }
+bad() { echo "FAIL     $1"; fail=1; }
+skip() { echo "SKIPPED  $1 ($2)"; }
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# 1. Secret files and obvious secret strings in the staged diff.
+secret_files=$(printf '%s\n' "$staged" | grep -E '(\.pem|\.key|(^|/)\.env(\.[^/]*)?|credentials)$' | grep -vE '\.(example|sample|template)$' || true)
+if [ -n "$secret_files" ]; then
+  bad "secret-looking files staged: $(echo "$secret_files" | tr '\n' ' ')"
+elif git diff --cached -U0 | grep -E '^\+' | grep -qE -- '-----BEGIN [A-Z ]*PRIVATE KEY-----|AKIA[0-9A-Z]{16}|sk-ant-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{36}'; then
+  bad "secret-looking string in staged diff (private key, AWS key id, Anthropic or GitHub token)"
+else
+  pass "basic secret scan (patterns only, not a full scanner)"
+fi
+
+# 2. Shell scripts that are staged.
+sh_files=$(printf '%s\n' "$staged" | grep -E '\.sh$|^scripts/git-hooks/' || true)
+if [ -z "$sh_files" ]; then
+  skip "shellcheck" "no shell files staged"
+elif command -v shellcheck >/dev/null 2>&1; then
+  # shellcheck disable=SC2086
+  if shellcheck -x $sh_files; then pass "shellcheck"; else bad "shellcheck"; fi
+else
+  skip "shellcheck" "not installed"
+fi
+
+# 3. Project checks: a `precommit` target in the Makefile, if the project defines one.
+if [ -f Makefile ] && grep -qE '^precommit:' Makefile; then
+  if make -s precommit; then pass "make precommit"; else bad "make precommit"; fi
+else
+  skip "project checks" "no 'precommit' target in Makefile"
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "Commit blocked. Fix the failures above."
+  exit 1
+fi
+exit 0

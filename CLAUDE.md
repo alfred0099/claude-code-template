@@ -1,36 +1,22 @@
 # Project Name
 
-This file provides guidance to Claude Code when working with this codebase.
+One paragraph: what this is, who it's for, and what state it's in.
 
-## Project Overview
+@decisions/BUSINESS.md
 
-**Project Name** is a [brief description].
-
-**Status:** Development  
-**Tech Stack:** [Technologies]  
-**Team:** [Team members]
+## How work is gated
+Classify every task by tier before starting (`.claude/rules/change-tiers.md`). Tier 1 and 2 need an approved record in `decisions/`. Honesty rules in `.claude/rules/honesty.md` apply to everything, including subagents. Commands: `/propose`, `/board D-NNNN`, `/outcome-review`, `/review`, `/fix-issue`.
 
 ## Commands
-
 ```bash
-# Setup
-# Add your setup commands here
-
-# Run
-# Add your run commands here
-
-# Test
-# Add your test commands here
+# setup
+# run
+# test (default run must not spend money or need credentials)
+# lint / type check
 ```
 
-## Coding Conventions
-
-See `.claude/rules/` for detailed guidelines.
-
 ## Architecture
+Keep this to what Claude needs in every session. Put area-specific detail in a `CLAUDE.md` inside that folder (loaded only when Claude works there) or in a path-scoped rule under `.claude/rules/`.
 
-[Describe architecture]
-
-## Common Workflows
-
-[Describe workflows]
+## Invariants
+Things that must stay true, and where they are enforced.
